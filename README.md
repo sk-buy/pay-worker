@@ -1,5 +1,7 @@
 # SK Pay Worker
 
+English | [简体中文](README.zh-CN.md)
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/sk-buy/pay-worker)
 
 Cloudflare Workers payment bridge for SKG / sk-buy ecosystem.
