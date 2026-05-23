@@ -19,10 +19,11 @@ Click the button above and deploy the worker.
 After deployment, open:
 
 ```text
+https://your-worker-name.your-account.workers.dev/
 https://your-worker-name.your-account.workers.dev/health
 ```
 
-If it returns `{"ok":true}`, copy the Worker URL back to SKG.
+The root path renders a normal website page. If `/health` returns `{"ok":true}`, copy the Worker URL back to SKG.
 
 ## EPay Setup
 

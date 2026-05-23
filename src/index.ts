@@ -187,6 +187,43 @@ function renderAdminPage(config: RuntimePayConfig, origin: string, bound: boolea
 </html>`);
 }
 
+function renderHomePage(origin: string, configured: boolean) {
+  return html(`<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SK Pay Worker</title>
+  <style>
+    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f8fafc;color:#0f172a}
+    main{max-width:780px;margin:0 auto;padding:42px 18px}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 12px 34px rgba(15,23,42,.07);padding:26px}
+    .badge{display:inline-flex;border:1px solid #ddd6fe;background:#f5f3ff;color:#6d28d9;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800}
+    h1{font-size:28px;margin:18px 0 10px}
+    p{color:#475569;line-height:1.75;margin:0 0 14px}
+    dl{display:grid;grid-template-columns:120px 1fr;gap:10px 14px;margin-top:20px}
+    dt{font-weight:800;color:#334155}dd{margin:0;color:#64748b;word-break:break-all}
+    a{color:#6d28d9;text-decoration:none;font-weight:800}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="card">
+      <span class="badge">SK Pay Worker</span>
+      <h1>支付桥接服务已运行</h1>
+      <p>这是 SKG / sk-buy 生态的支付桥接服务页面。该服务用于供应方独立接入 EPay 支付通道，并将支付结果回传给 SKG。</p>
+      <p>当前域名可作为 EPay 授权域名使用。验证文件配置后，也可以通过指定路径直接访问。</p>
+      <dl>
+        <dt>服务地址</dt><dd>${origin}</dd>
+        <dt>配置状态</dt><dd>${configured ? "已配置" : "待配置"}</dd>
+        <dt>健康检查</dt><dd><a href="/health">/health</a></dd>
+      </dl>
+    </div>
+  </main>
+</body>
+</html>`);
+}
+
 function normalizeStatus(value: string): NormalizedPayment["status"] {
   const status = value.toLowerCase();
   if (["paid", "success", "trade_success", "complete", "completed"].includes(status)) return "paid";
@@ -507,6 +544,11 @@ export default {
           configured: Boolean(config.epayPid && config.epayKey && config.epayUrl),
           bound: isBound(config),
         });
+      }
+
+      if (url.pathname === "/") {
+        const config = await getPayConfig(env);
+        return renderHomePage(url.origin, Boolean(config.epayPid && config.epayKey && config.epayUrl));
       }
 
       if (url.pathname === "/admin") {
