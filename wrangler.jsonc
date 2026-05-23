@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sk-pay-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-23",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "SUPPLIER_ID": "SUPPLIER_DEMO",
+    "SKG_CALLBACK_URL": "https://skg.sk-buy.com/api/skg/payment/callback",
+    "PAYMENT_PAGE_URL": "https://pay.example.com/order"
+  }
+}
