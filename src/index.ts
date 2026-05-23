@@ -1,18 +1,13 @@
 export interface Env {
-  SUPPLIER_ID: string;
-  SKG_CALLBACK_URL: string;
-  SKG_CALLBACK_SECRET: string;
-  EPAY_PID?: string;
-  EPAY_KEY?: string;
-  EPAY_TYPE?: string;
-  SITE_NAME?: string;
+  EPAY_PID: string;
+  EPAY_KEY: string;
+  EPAY_URL: string;
 }
 
 type ProviderPayload = Record<string, string>;
 
 interface NormalizedPayment {
   order_id: string;
-  supplier_id: string;
   amount: string;
   paid_at: string;
   status: "paid" | "pending" | "failed";
@@ -90,26 +85,12 @@ function normalizePayment(provider: string, payload: ProviderPayload, env: Env):
 
   return {
     order_id: orderId,
-    supplier_id: getRequiredEnv(env, "SUPPLIER_ID"),
     amount,
     paid_at: paidAt,
     status: normalizeStatus(status),
     raw_provider: provider,
     raw_trade_no: tradeNo,
   };
-}
-
-async function hmacHex(secret: string, body: string) {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
-  return [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function md5Hex(input: string) {
@@ -218,15 +199,13 @@ function buildEpaySignature(params: Record<string, string>, key: string) {
   return md5Hex(`${sorted}${key}`);
 }
 
-async function forwardToSkg(payment: NormalizedPayment, env: Env) {
+async function forwardToSkg(payment: NormalizedPayment, skgCallbackUrl: string) {
   const body = JSON.stringify(payment);
-  const signature = await hmacHex(getRequiredEnv(env, "SKG_CALLBACK_SECRET"), body);
 
-  const response = await fetch(getRequiredEnv(env, "SKG_CALLBACK_URL"), {
+  const response = await fetch(skgCallbackUrl, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-skg-signature": signature,
       "user-agent": "sk-buy-pay-worker/0.1",
     },
     body,
@@ -247,31 +226,29 @@ function buildPaymentRedirect(request: Request, env: Env) {
   const name = url.searchParams.get("name") || `SKG Order ${orderId}`;
   const notifyUrl = url.searchParams.get("notify_url") || "";
   const returnUrl = url.searchParams.get("return_url") || "";
-  const paymentUrl = url.searchParams.get("payment_url") || "";
-  const sig = url.searchParams.get("sig") || "";
+  const type = url.searchParams.get("type") || "alipay";
+  const siteName = url.searchParams.get("sitename") || "SKG";
 
   if (!orderId) return badRequest("order_id is required");
   if (!amount) return badRequest("amount is required");
-  if (!paymentUrl) return badRequest("payment_url is required");
   if (!notifyUrl) return badRequest("notify_url is required");
-  if (!sig) return badRequest("sig is required");
 
   const pid = getRequiredEnv(env, "EPAY_PID");
   const key = getRequiredEnv(env, "EPAY_KEY");
   const params: Record<string, string> = {
     pid,
-    type: String(env.EPAY_TYPE || "alipay"),
+    type,
     out_trade_no: orderId,
     notify_url: notifyUrl,
     return_url: returnUrl || notifyUrl,
     name,
     money: amount,
-    sitename: String(env.SITE_NAME || "SKG"),
+    sitename: siteName,
   };
   params.sign = buildEpaySignature(params, key);
   params.sign_type = "MD5";
 
-  const target = new URL(paymentUrl);
+  const target = new URL(getRequiredEnv(env, "EPAY_URL"));
   for (const [paramKey, value] of Object.entries(params)) {
     target.searchParams.set(paramKey, value);
   }
@@ -282,11 +259,13 @@ function buildPaymentRedirect(request: Request, env: Env) {
 async function handleCallback(request: Request, env: Env, provider: string) {
   const payload = await readProviderPayload(request);
   const payment = normalizePayment(provider, payload, env);
+  const skgCallbackUrl = pick(payload, ["skg_callback_url", "skgCallbackUrl"]);
 
   if (!payment.order_id) return badRequest("order_id is required");
   if (!payment.amount) return badRequest("amount is required");
+  if (!skgCallbackUrl) return badRequest("skg_callback_url is required");
 
-  const skgResult = await forwardToSkg(payment, env);
+  const skgResult = await forwardToSkg(payment, skgCallbackUrl);
   return json({
     ok: skgResult.ok,
     status: skgResult.status,

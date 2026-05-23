@@ -8,27 +8,17 @@ Cloudflare Workers payment bridge for SKG / sk-buy ecosystem.
 
 This worker lets a small supplier connect their own payment page to SKG without giving payment secrets to SKG.
 
-SKG controls the payment gateway URL and signs each payment request. The worker only stores supplier-side payment parameters such as EPay merchant ID and merchant key.
+The worker only stores three EPay values: `EPAY_PID`, `EPAY_KEY`, and `EPAY_URL`. Other order and callback data are supplied by SKG for each payment request.
 
 ## One-click Deploy
 
-Click the button above and fill in the values copied from SKG:
-
-```text
-SUPPLIER_ID
-SKG_CALLBACK_SECRET
-```
-
-Then fill in your own EPay parameters:
+Click the button above and fill in your own EPay parameters:
 
 ```text
 EPAY_PID
 EPAY_KEY
-EPAY_TYPE
-SITE_NAME
+EPAY_URL
 ```
-
-`SKG_CALLBACK_URL` can usually keep the default value.
 
 After deployment, open:
 
@@ -42,14 +32,13 @@ If it returns `{"ok":true}`, copy the Worker URL back to SKG.
 
 ```text
 GET  /health
-GET  /pay?order_id=...&amount=...&payment_url=...&notify_url=...&sig=...
+GET  /pay?order_id=...&amount=...&notify_url=...
 POST /callback/:provider
 ```
 
 ## Required Secret
 
 ```bash
-wrangler secret put SKG_CALLBACK_SECRET
 wrangler secret put EPAY_KEY
 ```
 
@@ -69,21 +58,17 @@ npm run deploy
 ## Environment Variables
 
 ```text
-SUPPLIER_ID       Supplier ID from SKG
-SKG_CALLBACK_URL  SKG payment callback endpoint
 EPAY_PID          EPay merchant ID
-EPAY_TYPE         Default EPay payment type
-SITE_NAME         Site name shown on payment page
+EPAY_URL          EPay submit URL
 ```
 
-`SKG_CALLBACK_SECRET` and `EPAY_KEY` must be stored as Cloudflare secrets.
+`EPAY_KEY` must be stored as a Cloudflare secret.
 
 ## Callback Format Sent To SKG
 
 ```json
 {
   "order_id": "SKG-O-xxx",
-  "supplier_id": "SUP-xxx",
   "amount": "100.00",
   "paid_at": "2026-05-23T12:00:00.000Z",
   "status": "paid",
@@ -92,8 +77,4 @@ SITE_NAME         Site name shown on payment page
 }
 ```
 
-The worker signs the JSON body with HMAC-SHA256 and sends it in:
-
-```text
-x-skg-signature
-```
+SKG validates payment amount and order ownership after receiving the callback.

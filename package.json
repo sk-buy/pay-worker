@@ -15,26 +15,14 @@
   },
   "cloudflare": {
     "bindings": {
-      "SUPPLIER_ID": {
-        "description": "从 SKG 支付设置页面复制供应方 ID，例如 `SUP_xxx`。"
-      },
-      "SKG_CALLBACK_URL": {
-        "description": "SKG 支付回调地址，默认使用官方地址：`https://skg.sk-buy.com/api/skg/payment/callback`。"
-      },
       "EPAY_PID": {
         "description": "易支付商户 ID。该值保存在你的 Cloudflare Worker 中，SKG 不获取。"
       },
       "EPAY_KEY": {
         "description": "易支付商户密钥。它会作为 Cloudflare Secret 保存，SKG 不获取。"
       },
-      "EPAY_TYPE": {
-        "description": "默认支付方式，例如 `alipay`、`wxpay`、`qqpay`。"
-      },
-      "SITE_NAME": {
-        "description": "支付页面显示的站点名称。"
-      },
-      "SKG_CALLBACK_SECRET": {
-        "description": "从 SKG 支付设置页面复制回调密钥。它会作为 Cloudflare Secret 保存，不会公开显示。"
+      "EPAY_URL": {
+        "description": "易支付提交地址，例如 `https://pay.example.com/submit.php`。"
       }
     }
   }

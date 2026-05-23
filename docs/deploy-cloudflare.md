@@ -8,23 +8,13 @@ Open:
 https://deploy.workers.cloudflare.com/?url=https://github.com/sk-buy/pay-worker
 ```
 
-Fill in the values copied from SKG:
-
-```text
-SUPPLIER_ID
-SKG_CALLBACK_SECRET
-```
-
-Then fill in your own EPay parameters:
+Fill in your own EPay parameters:
 
 ```text
 EPAY_PID
 EPAY_KEY
-EPAY_TYPE
-SITE_NAME
+EPAY_URL
 ```
-
-Keep `SKG_CALLBACK_URL` unchanged unless SKG gives you another callback URL.
 
 After deployment, visit:
 
@@ -59,11 +49,8 @@ npx wrangler secret put SKG_CALLBACK_SECRET
 ```jsonc
 {
   "vars": {
-    "SUPPLIER_ID": "your-skg-supplier-id",
-    "SKG_CALLBACK_URL": "https://skg.sk-buy.com/api/skg/payment/callback",
     "EPAY_PID": "your-epay-pid",
-    "EPAY_TYPE": "alipay",
-    "SITE_NAME": "SKG"
+    "EPAY_URL": "https://your-epay.example.com/submit.php"
   }
 }
 ```
