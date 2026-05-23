@@ -10,6 +10,8 @@ SKG / sk-buy 生态的 Cloudflare Workers 支付桥接器。
 
 Worker 自带设置页面。站长部署后，用自己的 `workers.dev` 域名去 EPay 建立新支付通道，再在 Worker 页面填写 EPay 参数和验证文件。
 
+`EPAY_KEY` 会在 Worker 内自动加密后保存到 Cloudflare KV，设置页不会回显明文。
+
 ## 一键部署
 
 点击上方按钮部署 Worker。

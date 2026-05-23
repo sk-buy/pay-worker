@@ -9,10 +9,15 @@ type ProviderPayload = Record<string, string>;
 interface PayConfig {
   adminToken: string;
   epayPid: string;
-  epayKey: string;
+  encryptedEpayKey: string;
+  epayKeyIv: string;
   epayUrl: string;
   verifyPath: string;
   verifyContent: string;
+}
+
+interface RuntimePayConfig extends PayConfig {
+  epayKey: string;
 }
 
 interface NormalizedPayment {
@@ -54,12 +59,62 @@ function getRequiredEnv(env: Env, key: keyof Env) {
   return value;
 }
 
-async function getPayConfig(env: Env): Promise<PayConfig> {
+function toBase64(bytes: ArrayBuffer | Uint8Array) {
+  const array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let binary = "";
+  for (const byte of array) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function fromBase64(value: string) {
+  const binary = atob(value);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+async function getOrCreateEncryptionKey(env: Env) {
+  const existing = await env.PAY_CONFIG.get("local_encryption_key");
+  if (existing) return existing;
+
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const key = toBase64(bytes);
+  await env.PAY_CONFIG.put("local_encryption_key", key);
+  return key;
+}
+
+async function importAesKey(rawKey: string) {
+  return crypto.subtle.importKey("raw", fromBase64(rawKey), { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+async function encryptSecret(env: Env, value: string) {
+  const rawKey = await getOrCreateEncryptionKey(env);
+  const key = await importAesKey(rawKey);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(value));
+  return {
+    encrypted: toBase64(encrypted),
+    iv: toBase64(iv),
+  };
+}
+
+async function decryptSecret(env: Env, encrypted: string, iv: string) {
+  if (!encrypted || !iv) return "";
+  const rawKey = await getOrCreateEncryptionKey(env);
+  const key = await importAesKey(rawKey);
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromBase64(iv) }, key, fromBase64(encrypted));
+  return new TextDecoder().decode(decrypted);
+}
+
+async function getPayConfig(env: Env): Promise<RuntimePayConfig> {
   const stored = await env.PAY_CONFIG.get("pay_config", "json") as Partial<PayConfig> | null;
+  const encryptedEpayKey = String(stored?.encryptedEpayKey || "");
+  const epayKeyIv = String(stored?.epayKeyIv || "");
+  const legacyEpayKey = String((stored as Partial<PayConfig> & { epayKey?: string } | null)?.epayKey || env.EPAY_KEY || "");
   return {
     adminToken: String(stored?.adminToken || ""),
     epayPid: String(stored?.epayPid || env.EPAY_PID || ""),
-    epayKey: String(stored?.epayKey || env.EPAY_KEY || ""),
+    encryptedEpayKey,
+    epayKeyIv,
+    epayKey: encryptedEpayKey ? await decryptSecret(env, encryptedEpayKey, epayKeyIv) : legacyEpayKey,
     epayUrl: String(stored?.epayUrl || ""),
     verifyPath: String(stored?.verifyPath || ""),
     verifyContent: String(stored?.verifyContent || ""),
@@ -70,22 +125,22 @@ async function savePayConfig(env: Env, config: PayConfig) {
   await env.PAY_CONFIG.put("pay_config", JSON.stringify(config));
 }
 
-function isInitialized(config: PayConfig) {
+function isInitialized(config: RuntimePayConfig) {
   return Boolean(config.epayPid && config.epayKey && config.epayUrl);
 }
 
-function isBound(config: PayConfig) {
+function isBound(config: RuntimePayConfig) {
   return Boolean(config.adminToken);
 }
 
-function canManage(request: Request, config: PayConfig) {
+function canManage(request: Request, config: RuntimePayConfig) {
   if (!isBound(config)) return true;
   const url = new URL(request.url);
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || url.searchParams.get("token") || "";
   return Boolean(token && token === config.adminToken);
 }
 
-function renderAdminPage(config: PayConfig, origin: string, bound: boolean) {
+function renderAdminPage(config: RuntimePayConfig, origin: string, bound: boolean) {
   const escaped = (value: string) => value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
   return html(`<!doctype html>
 <html lang="zh-CN">
@@ -114,7 +169,7 @@ function renderAdminPage(config: PayConfig, origin: string, bound: boolean) {
       <form method="post" action="/api/config">
         <div class="grid">
           <label>EPAY_PID<input name="epayPid" value="${escaped(config.epayPid)}" required /></label>
-          <label>EPAY_KEY<input name="epayKey" value="${escaped(config.epayKey)}" required /></label>
+          <label>EPAY_KEY<input name="epayKey" value="" placeholder="${config.epayKey ? "已加密保存，留空则不修改" : "请输入 EPAY_KEY"}" ${config.epayKey ? "" : "required"} /></label>
         </div>
         <label>EPAY_URL<input name="epayUrl" value="${escaped(config.epayUrl)}" placeholder="https://pay.example.com/submit.php" required /></label>
         <label>验证文件路径<input name="verifyPath" value="${escaped(config.verifyPath)}" placeholder="/abcdef.txt" /></label>
@@ -380,17 +435,23 @@ async function handleSaveConfig(request: Request, env: Env) {
   const token = String(form.get("token") || "");
   if (isBound(current) && token !== current.adminToken) return json({ error: "Unauthorized" }, { status: 401 });
 
+  const nextEpayKey = String(form.get("epayKey") || "").trim();
+  const encryptedKey = nextEpayKey
+    ? await encryptSecret(env, nextEpayKey)
+    : { encrypted: current.encryptedEpayKey, iv: current.epayKeyIv };
+
   const config: PayConfig = {
     adminToken: current.adminToken,
     epayPid: String(form.get("epayPid") || "").trim(),
-    epayKey: String(form.get("epayKey") || "").trim(),
+    encryptedEpayKey: encryptedKey.encrypted,
+    epayKeyIv: encryptedKey.iv,
     epayUrl: String(form.get("epayUrl") || "").trim(),
     verifyPath: String(form.get("verifyPath") || "").trim(),
     verifyContent: String(form.get("verifyContent") || ""),
   };
 
   if (!config.epayPid) return badRequest("EPAY_PID is required");
-  if (!config.epayKey) return badRequest("EPAY_KEY is required");
+  if (!config.encryptedEpayKey) return badRequest("EPAY_KEY is required");
   if (!config.epayUrl) return badRequest("EPAY_URL is required");
 
   await savePayConfig(env, config);

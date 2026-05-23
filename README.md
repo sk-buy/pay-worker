@@ -10,6 +10,8 @@ This worker lets a small supplier connect their own payment page to SKG without 
 
 The worker includes a setup page. After deployment, the supplier creates a new EPay channel for their `workers.dev` domain, then fills EPay settings and verification file content in the worker setup page.
 
+`EPAY_KEY` is encrypted inside the worker before being saved to Cloudflare KV. The setup page does not display the plaintext key after saving.
+
 ## One-click Deploy
 
 Click the button above and deploy the worker.
