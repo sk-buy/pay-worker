@@ -411,6 +411,15 @@ function buildEpaySignature(params: Record<string, string>, key: string) {
   return md5Hex(`${sorted}${key}`);
 }
 
+function normalizeEpaySubmitUrl(paymentUrl: string) {
+  const target = new URL(paymentUrl);
+  const path = target.pathname.replace(/\/+$/, "");
+  if (!path || path === "/epay") {
+    target.pathname = `${path || ""}/submit.php`.replace(/^\/?/, "/");
+  }
+  return target;
+}
+
 async function forwardToSkg(payment: NormalizedPayment, skgCallbackUrl: string) {
   const body = JSON.stringify(payment);
 
@@ -465,7 +474,7 @@ async function buildPaymentRedirect(request: Request, env: Env) {
   params.sign = buildEpaySignature(params, key);
   params.sign_type = "MD5";
 
-  const target = new URL(paymentUrl);
+  const target = normalizeEpaySubmitUrl(paymentUrl);
   for (const [paramKey, value] of Object.entries(params)) {
     target.searchParams.set(paramKey, value);
   }
