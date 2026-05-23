@@ -19,5 +19,8 @@
         "description": "保存 EPay 参数和验证文件内容的 KV Namespace。"
       }
     }
+  },
+  "dependencies": {
+    "js-md5": "^0.8.3"
   }
 }
