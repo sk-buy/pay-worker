@@ -30,11 +30,7 @@ Open:
 https://your-worker-name.your-account.workers.dev/admin
 ```
 
-First setup does not require a password. After saving, `EPAY_PID` becomes the admin token. Next time open:
-
-```text
-https://your-worker-name.your-account.workers.dev/admin?token=YOUR_EPAY_PID
-```
+Before binding to SKG, the setup page does not require a password. During SKG connection testing, SKG writes the SKG merchant ID into the Worker as the future admin token.
 
 Fill in:
 
@@ -58,6 +54,7 @@ your-worker-name.your-account.workers.dev
 GET  /health
 GET  /pay?order_id=...&amount=...&payment_url=...&notify_url=...
 POST /callback/:provider
+POST /api/bind
 ```
 
 ## Local Dev

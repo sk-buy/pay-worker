@@ -22,7 +22,7 @@ Open the setup page:
 https://your-worker-name.your-account.workers.dev/admin
 ```
 
-First setup does not require a password. After saving, `EPAY_PID` becomes the admin token.
+Before binding to SKG, the setup page does not require a password. During SKG connection testing, SKG writes the SKG merchant ID into the Worker as the future admin token.
 
 Fill in:
 

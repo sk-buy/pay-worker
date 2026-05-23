@@ -30,11 +30,7 @@ https://你的-worker-name.你的账号.workers.dev/health
 https://你的-worker-name.你的账号.workers.dev/admin
 ```
 
-首次设置无需密码。保存后，`EPAY_PID` 就是管理口令；以后访问：
-
-```text
-https://你的-worker-name.你的账号.workers.dev/admin?token=你的EPAY_PID
-```
+绑定 SKG 前，设置页无需密码。SKG 后台测试连接时，会自动把 SKG 商户 ID 写入 Worker 作为后续管理口令。
 
 填写：
 
@@ -58,6 +54,7 @@ EPay 授权域名填写：
 GET  /health
 GET  /pay?order_id=...&amount=...&payment_url=...&notify_url=...
 POST /callback/:provider
+POST /api/bind
 ```
 
 ## 本地开发
