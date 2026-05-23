@@ -1,5 +1,4 @@
 export interface Env {
-  ADMIN_TOKEN: string;
   EPAY_PID: string;
   EPAY_KEY: string;
   PAY_CONFIG: KVNamespace;
@@ -69,13 +68,18 @@ async function savePayConfig(env: Env, config: PayConfig) {
   await env.PAY_CONFIG.put("pay_config", JSON.stringify(config));
 }
 
-function isAdmin(request: Request, env: Env) {
-  const url = new URL(request.url);
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || url.searchParams.get("token") || "";
-  return token && token === env.ADMIN_TOKEN;
+function isInitialized(config: PayConfig) {
+  return Boolean(config.epayPid && config.epayKey && config.epayUrl);
 }
 
-function renderAdminPage(config: PayConfig, origin: string) {
+function canManage(request: Request, config: PayConfig) {
+  if (!isInitialized(config)) return true;
+  const url = new URL(request.url);
+  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || url.searchParams.get("token") || "";
+  return Boolean(token && token === config.epayPid);
+}
+
+function renderAdminPage(config: PayConfig, origin: string, initialized: boolean) {
   const escaped = (value: string) => value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
   return html(`<!doctype html>
 <html lang="zh-CN">
@@ -100,7 +104,7 @@ function renderAdminPage(config: PayConfig, origin: string) {
   <main>
     <div class="card">
       <h1>SK Pay Worker 设置</h1>
-      <p class="muted">将 EPay 授权域名填写为：<code>${origin.replace(/^https?:\/\//, "")}</code>。验证文件保存后，可直接访问对应 URL。</p>
+      <p class="muted">将 EPay 授权域名填写为：<code>${origin.replace(/^https?:\/\//, "")}</code>。${initialized ? "再次访问设置页时，token 使用 EPAY_PID。" : "首次设置无需密码，保存后 EPAY_PID 将作为管理口令。"}</p>
       <form method="post" action="/api/config">
         <div class="grid">
           <label>EPAY_PID<input name="epayPid" value="${escaped(config.epayPid)}" required /></label>
@@ -115,7 +119,7 @@ function renderAdminPage(config: PayConfig, origin: string) {
     </div>
   </main>
   <script>
-    const token = new URLSearchParams(location.search).get("token") || "";
+    const token = new URLSearchParams(location.search).get("token") || document.querySelector('input[name="epayPid"]').value || "";
     document.querySelector('input[name="token"]').value = token;
   </script>
 </body>
@@ -365,9 +369,10 @@ async function handleCallback(request: Request, env: Env, provider: string) {
 }
 
 async function handleSaveConfig(request: Request, env: Env) {
+  const current = await getPayConfig(env);
   const form = await request.formData();
   const token = String(form.get("token") || "");
-  if (token !== env.ADMIN_TOKEN) return json({ error: "Unauthorized" }, { status: 401 });
+  if (isInitialized(current) && token !== current.epayPid) return json({ error: "Unauthorized" }, { status: 401 });
 
   const config: PayConfig = {
     epayPid: String(form.get("epayPid") || "").trim(),
@@ -382,7 +387,7 @@ async function handleSaveConfig(request: Request, env: Env) {
   if (!config.epayUrl) return badRequest("EPAY_URL is required");
 
   await savePayConfig(env, config);
-  return html("<script>alert('保存成功');location.href='/admin?token='+encodeURIComponent(new URLSearchParams(location.search).get('token')||'')</script>");
+  return html(`<script>alert('保存成功');location.href='/admin?token=${encodeURIComponent(config.epayPid)}'</script>`);
 }
 
 async function maybeServeVerifyFile(request: Request, env: Env) {
@@ -414,8 +419,9 @@ export default {
       }
 
       if (url.pathname === "/admin") {
-        if (!isAdmin(request, env)) return json({ error: "Unauthorized" }, { status: 401 });
-        return renderAdminPage(await getPayConfig(env), url.origin);
+        const config = await getPayConfig(env);
+        if (!canManage(request, config)) return json({ error: "Unauthorized" }, { status: 401 });
+        return renderAdminPage(config, url.origin, isInitialized(config));
       }
 
       if (url.pathname === "/api/config" && request.method === "POST") {

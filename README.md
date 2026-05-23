@@ -14,8 +14,6 @@ The worker includes a setup page. After deployment, the supplier creates a new E
 
 Click the button above and deploy the worker.
 
-Only `ADMIN_TOKEN` is required during deployment. It protects the setup page.
-
 After deployment, open:
 
 ```text
@@ -29,7 +27,13 @@ If it returns `{"ok":true}`, copy the Worker URL back to SKG.
 Open:
 
 ```text
-https://your-worker-name.your-account.workers.dev/admin?token=YOUR_ADMIN_TOKEN
+https://your-worker-name.your-account.workers.dev/admin
+```
+
+First setup does not require a password. After saving, `EPAY_PID` becomes the admin token. Next time open:
+
+```text
+https://your-worker-name.your-account.workers.dev/admin?token=YOUR_EPAY_PID
 ```
 
 Fill in:
@@ -56,12 +60,6 @@ GET  /pay?order_id=...&amount=...&payment_url=...&notify_url=...
 POST /callback/:provider
 ```
 
-## Required Secret
-
-```bash
-wrangler secret put ADMIN_TOKEN
-```
-
 ## Local Dev
 
 ```bash
@@ -73,12 +71,6 @@ npm run dev
 
 ```bash
 npm run deploy
-```
-
-## Environment Variables
-
-```text
-ADMIN_TOKEN       Admin token for the setup page
 ```
 
 EPay settings are saved into Cloudflare KV from the worker setup page.

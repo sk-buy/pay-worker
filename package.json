@@ -15,9 +15,6 @@
   },
   "cloudflare": {
     "bindings": {
-      "ADMIN_TOKEN": {
-        "description": "Worker 设置页面管理口令。部署完成后通过 `/admin?token=...` 打开设置页面。"
-      },
       "PAY_CONFIG": {
         "description": "保存 EPay 参数和验证文件内容的 KV Namespace。"
       }
