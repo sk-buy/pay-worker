@@ -33,8 +33,23 @@ function json(data: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(data), {
     ...init,
     headers: {
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET,POST,OPTIONS",
+      "access-control-allow-headers": "content-type,authorization",
       "content-type": "application/json; charset=utf-8",
       ...(init.headers || {}),
+    },
+  });
+}
+
+function corsPreflight() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET,POST,OPTIONS",
+      "access-control-allow-headers": "content-type,authorization",
+      "access-control-max-age": "86400",
     },
   });
 }
@@ -567,6 +582,10 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
       const url = new URL(request.url);
+
+      if (request.method === "OPTIONS") {
+        return corsPreflight();
+      }
 
       const verifyResponse = await maybeServeVerifyFile(request, env);
       if (verifyResponse) return verifyResponse;
