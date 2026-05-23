@@ -320,7 +320,7 @@ function normalizeEpaySubmitUrl(paymentUrl: string) {
   const target = new URL(paymentUrl);
   const path = target.pathname.replace(/\/+$/, "");
   if (!path || path === "/epay") {
-    target.pathname = `${path || ""}/submit`.replace(/^\/?/, "/");
+    target.pathname = `${path || ""}/submit.php`.replace(/^\/?/, "/");
   }
   return target;
 }
