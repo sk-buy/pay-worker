@@ -33,7 +33,7 @@ https://你的-worker-name.你的账号.workers.dev/health
 https://你的-worker-name.你的账号.workers.dev/admin
 ```
 
-绑定 SKG 前，设置页无需密码。SKG 后台测试连接时，会自动把 SKG 商户 ID 写入 Worker 作为后续管理口令。
+绑定 SKG 前，设置页无需密码。SKG 后台绑定时，会自动生成一段独立的 Worker 管理密码并写入 Worker，后续访问设置页需要这个密码。
 
 填写：
 
@@ -66,6 +66,7 @@ GET  /health
 GET  /pay?order_id=...&amount=...&payment_url=...&notify_url=...
 POST /callback/:provider
 POST /api/bind
+POST /api/admin-token
 ```
 
 ## 本地开发

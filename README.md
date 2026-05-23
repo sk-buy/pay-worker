@@ -33,7 +33,7 @@ Open:
 https://your-worker-name.your-account.workers.dev/admin
 ```
 
-Before binding to SKG, the setup page does not require a password. During SKG connection testing, SKG writes the SKG merchant ID into the Worker as the future admin token.
+Before binding to SKG, the setup page does not require a password. During SKG binding, SKG generates an independent Worker admin password and writes it into the Worker.
 
 Fill in:
 
@@ -66,6 +66,7 @@ GET  /health
 GET  /pay?order_id=...&amount=...&payment_url=...&notify_url=...
 POST /callback/:provider
 POST /api/bind
+POST /api/admin-token
 ```
 
 ## Local Dev

@@ -165,7 +165,7 @@ function renderAdminPage(config: RuntimePayConfig, origin: string, bound: boolea
   <main>
     <div class="card">
       <h1>SK Pay Worker 设置</h1>
-      <p class="muted">将 EPay 授权域名填写为：<code>${origin.replace(/^https?:\/\//, "")}</code>。${bound ? "此 Worker 已绑定 SKG，后续访问设置页需要 SKG 商户 ID。" : "绑定 SKG 前，设置页无需密码。"}</p>
+      <p class="muted">将 EPay 授权域名填写为：<code>${origin.replace(/^https?:\/\//, "")}</code>。${bound ? "此 Worker 已绑定 SKG，后续访问设置页需要 SKG 后台显示的 Worker 管理密码。" : "绑定 SKG 前，设置页无需密码。"}</p>
       <form method="post" action="/api/config" enctype="multipart/form-data">
         <div class="grid">
           <label>EPAY_PID<input name="epayPid" value="${escaped(config.epayPid)}" required /></label>
@@ -512,23 +512,43 @@ async function handleSaveConfig(request: Request, env: Env) {
 
 async function handleBind(request: Request, env: Env) {
   const current = await getPayConfig(env);
-  const payload = await request.json().catch(() => ({})) as { merchant_id?: unknown; merchantId?: unknown; token?: unknown };
+  const payload = await request.json().catch(() => ({})) as { admin_token?: unknown; adminToken?: unknown; token?: unknown };
   const token = String(payload.token || "");
-  const merchantId = String(payload.merchant_id || payload.merchantId || "").trim();
+  const nextAdminToken = String(payload.admin_token || payload.adminToken || "").trim();
 
-  if (!merchantId) return badRequest("merchant_id is required");
+  if (!nextAdminToken) return badRequest("admin_token is required");
   if (isBound(current) && token !== current.adminToken) return json({ error: "Already bound" }, { status: 409 });
 
   const next: PayConfig = {
     ...current,
-    adminToken: merchantId,
+    adminToken: nextAdminToken,
   };
   await savePayConfig(env, next);
 
   return json({
     ok: true,
     bound: true,
-    merchant_id: merchantId,
+  });
+}
+
+async function handleAdminToken(request: Request, env: Env) {
+  const current = await getPayConfig(env);
+  const payload = await request.json().catch(() => ({})) as { token?: unknown; admin_token?: unknown; adminToken?: unknown };
+  const token = String(payload.token || "");
+  const nextAdminToken = String(payload.admin_token || payload.adminToken || "").trim();
+
+  if (!isBound(current)) return badRequest("Worker is not bound");
+  if (token !== current.adminToken) return json({ error: "Unauthorized" }, { status: 401 });
+  if (!nextAdminToken) return badRequest("admin_token is required");
+
+  await savePayConfig(env, {
+    ...current,
+    adminToken: nextAdminToken,
+  });
+
+  return json({
+    ok: true,
+    updated: true,
   });
 }
 
@@ -578,6 +598,10 @@ export default {
 
       if (url.pathname === "/api/bind" && request.method === "POST") {
         return handleBind(request, env);
+      }
+
+      if (url.pathname === "/api/admin-token" && request.method === "POST") {
+        return handleAdminToken(request, env);
       }
 
       if (url.pathname === "/pay") {
